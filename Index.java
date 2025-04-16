@@ -1,3 +1,5 @@
+import java.util.*;
+
 public class Index {
 
     public enum FileStatus {
@@ -18,7 +20,7 @@ public class Index {
         private long fileSize;
         private List<Integer> storagePorts; //Ports of the Dstores that contain the file
 
-        public FileInformation (FileStatus status, int fileSize, List<Integer> storagePorts) {
+        public FileInformation (FileStatus status, long fileSize, List<Integer> storagePorts) {
             this.status = status;
             this.fileSize = fileSize;
             this.storagePorts = storagePorts;
@@ -40,8 +42,8 @@ public class Index {
             this.fileSize = fileSize;
         }
 
-        public List<Integer> getStoreLocations() {
-            return storeLocations;
+        public List<Integer> getStoragePorts() {
+            return storagePorts;
         }
 
         public void setStoragePorts(List<Integer> storagePorts) {
@@ -50,12 +52,12 @@ public class Index {
     }
 
     public synchronized void addFile(String fileName, long fileSize, List<Integer> storagePorts) { // Use of keyword synchronized to ensure no concurrent access
-        FileInformation metadata = new FileInformation(FileStatus.STORE_IN_PROGRESS, size, storagePorts);
+        FileInformation metadata = new FileInformation(FileStatus.STORE_IN_PROGRESS, fileSize, storagePorts);
         fileIndex.put(fileName, metadata);
     }
 
     public synchronized void removeFile(String fileName) {
-        fileIndex.remove(filename);
+        fileIndex.remove(fileName);
     }
 
     public synchronized void updateFileStatus(String fileName, FileStatus status) {
@@ -68,28 +70,18 @@ public class Index {
     }
 
     public synchronized FileInformation getFileInformation(String fileName) {
-        return fileIndex.get(filename)
+        return fileIndex.get(fileName);
     }
 
     public synchronized List<String> getFileList() {
         List<String> fileList = new ArrayList<String>();
-        for (Map.Entry<String, FileMetadata> entry : fileIndex.entrySet()) {
+        for (Map.Entry<String, FileInformation> entry : fileIndex.entrySet()) {
             if (entry.getValue().getStatus() == FileStatus.STORE_COMPLETE) {
                 fileList.add(entry.getKey());
             }
         }
         return fileList;
 
-    }
-
-    public synchronized List<Integer> getStoragePorts(String fileName) {
-        FileInformation metadata = fileIndex.get(fileName);
-        if (metadata != null) {
-            return metadata.getStoragePorts();
-        } else {
-            System.err.println("ERROR: No metadata stored for this file");
-            return null;
-        }
     }
 
     public HashMap<String, FileInformation> getFileIndex() {
