@@ -4,8 +4,6 @@ public class Controller {
     private int timeout;
     private int rebalance_period;
 
-
-
     public Controller(int cport, int replicationFactor, int timeout, int rebalance_period) {
         this.cport = cport;
         this.replicationFactor = replicationFactor;
