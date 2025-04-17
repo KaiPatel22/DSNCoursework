@@ -1,3 +1,5 @@
+import java.net.*;
+
 public class Controller {
     private int cport;
     private int replicationFactor;
@@ -14,6 +16,25 @@ public class Controller {
 
     }
 
+    public void start(){
+        ServerSocket controllerServerSocket;
+        try{
+            controllerServerSocket = new ServerSocket(cport);
+            System.out.println("Controller started on port " + cport);
+            for(;;){
+                try{
+                    System.out.println("Waiting for connection");
+                    Socket controllerClient = controllerServerSocket.accept();
+                    System.out.println("Connected Successfully on port " + controllerClient.getPort() + " with address " + controllerClient.getInetAddress());
+                }catch(Exception e){
+                    System.err.println("ERROR: Could not accept connection: " + e);
+                }
+            }
+        }catch(Exception e){
+            System.err.println("ERROR: Could not create controller socket: " + e);
+        }
+    }
+
     public static void main(String[] args) {
         int cport = Integer.parseInt(args[0]);
         int replicationFactor = Integer.parseInt(args[1]);
@@ -21,6 +42,6 @@ public class Controller {
         int rebalance_period = Integer.parseInt(args[3]);
 
         Controller controller = new Controller(cport, replicationFactor, timeout, rebalance_period);
-
+        controller.start();
     }
 }
