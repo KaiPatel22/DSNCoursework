@@ -3,14 +3,14 @@ public class Controller {
     private int replicationFactor;
     private int timeout;
     private int rebalance_period;
-    private Index index;
+    static Index index;
 
     public Controller(int cport, int replicationFactor, int timeout, int rebalance_period) {
         this.cport = cport;
         this.replicationFactor = replicationFactor;
         this.timeout = timeout;
         this.rebalance_period = rebalance_period;
-        this.index = new Index();
+        index = new Index();
 
     }
 
@@ -21,7 +21,6 @@ public class Controller {
         int rebalance_period = Integer.parseInt(args[3]);
 
         Controller controller = new Controller(cport, replicationFactor, timeout, rebalance_period);
-
 
     }
 }

@@ -18,9 +18,9 @@ public class Index {
     static class FileInformation{
         private FileStatus status;
         private long fileSize;
-        private List<Integer> storagePorts; //Ports of the Dstores that contain the file
+        private ArrayList<Integer> storagePorts; //Ports of the Dstores that contain the file
 
-        public FileInformation (FileStatus status, long fileSize, List<Integer> storagePorts) {
+        public FileInformation (FileStatus status, long fileSize, ArrayList<Integer> storagePorts) {
             this.status = status;
             this.fileSize = fileSize;
             this.storagePorts = storagePorts;
@@ -42,16 +42,16 @@ public class Index {
             this.fileSize = fileSize;
         }
 
-        public List<Integer> getStoragePorts() {
+        public ArrayList<Integer> getStoragePorts() {
             return storagePorts;
         }
 
-        public void setStoragePorts(List<Integer> storagePorts) {
+        public void setStoragePorts(ArrayList<Integer> storagePorts) {
             this.storagePorts = storagePorts;
         }
     }
 
-    public synchronized void addFile(String fileName, long fileSize, List<Integer> storagePorts) { // Use of keyword synchronized to ensure no concurrent access
+    public synchronized void addFile(String fileName, long fileSize, ArrayList<Integer> storagePorts) { // Use of keyword synchronized to ensure no concurrent access
         FileInformation metadata = new FileInformation(FileStatus.STORE_IN_PROGRESS, fileSize, storagePorts);
         fileIndex.put(fileName, metadata);
     }
@@ -73,10 +73,10 @@ public class Index {
         return fileIndex.get(fileName);
     }
 
-    public synchronized List<String> getFileList() {
-        List<String> fileList = new ArrayList<String>();
+    public synchronized ArrayList<String> getFileList() {
+        ArrayList<String> fileList = new ArrayList<String>();
         for (Map.Entry<String, FileInformation> entry : fileIndex.entrySet()) {
-            if (entry.getValue().getStatus() == FileStatus.STORE_COMPLETE) {
+            if (entry.getValue().getStatus() == FileStatus.STORE_COMPLETE) { // Only show files that are stored, this also helps to stop concurrent operations being accessed
                 fileList.add(entry.getKey());
             }
         }
