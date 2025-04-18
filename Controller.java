@@ -1,11 +1,15 @@
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.net.*;
+import java.util.ArrayList;
 
 public class Controller {
     private int cport;
     private int replicationFactor;
     private int timeout;
     private int rebalance_period;
-    static Index index;
+    static Index index; // Instance object of index, final because it doesn't differ between controller objects
+    private ArrayList<Integer> dstorePortsConnected; // This differs from what the index stores, index only keeps track of files but this list keeps track of dstore ports connected.
 
     public Controller(int cport, int replicationFactor, int timeout, int rebalance_period) {
         this.cport = cport;
@@ -13,6 +17,7 @@ public class Controller {
         this.timeout = timeout;
         this.rebalance_period = rebalance_period;
         index = new Index();
+        dstorePortsConnected = new ArrayList<Integer>();
 
     }
 
@@ -24,14 +29,39 @@ public class Controller {
             for(;;){
                 try{
                     System.out.println("Waiting for connection");
-                    Socket controllerClient = controllerServerSocket.accept();
-                    System.out.println("Connected Successfully on port " + controllerClient.getPort() + " with address " + controllerClient.getInetAddress());
+                    Socket controllerSocket = controllerServerSocket.accept();
+                    System.out.println("Connected Successfully on port " + controllerSocket.getPort() + " with address " + controllerSocket.getInetAddress());
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            handleConnection(controllerSocket);
+                        }
+                    }).start();
                 }catch(Exception e){
                     System.err.println("ERROR: Could not accept connection: " + e);
                 }
             }
         }catch(Exception e){
             System.err.println("ERROR: Could not create controller socket: " + e);
+        }
+    }
+
+    public void handleConnection(Socket controllerSocket){
+        try{
+            BufferedReader reader = new BufferedReader(new InputStreamReader(controllerSocket.getInputStream()));
+            String message = reader.readLine();
+            if (message.startsWith("JOIN")) {
+                String[] parts = message.split(" ");
+                int dstorePort = Integer.parseInt(parts[1]);
+                if (!dstorePortsConnected.contains(dstorePort)) {
+                    dstorePortsConnected.add(dstorePort);
+                    System.out.println("Added Dstore port " + dstorePort + " to connected list.");
+                }else{
+                    System.out.println("Dstore port " + dstorePort + " is already connected.");
+                }
+            }
+        }catch(Exception e){
+            System.err.println("ERROR: Could not read message from controller socket: " + e);
         }
     }
 

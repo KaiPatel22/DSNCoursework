@@ -25,8 +25,8 @@ public class DStore {
             for(;;){
                 try{
                     System.out.println("Waiting for connection");
-                    Socket dstoreClient = dstoreServerSocket.accept();
-                    System.out.println("Connected Successfully on port " + dstoreClient.getPort() + " with address " + dstoreClient.getInetAddress());
+                    Socket dstoreSocket = dstoreServerSocket.accept();
+                    System.out.println("Connected Successfully on port " + dstoreSocket.getPort() + " with address " + dstoreSocket.getInetAddress());
                 }catch (Exception e) {
                     System.err.println("ERROR: Could not accept connection: " + e);
                 }
