@@ -1,7 +1,9 @@
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.*;
 import java.util.ArrayList;
+import java.util.Collections;
 
 public class Controller {
     private int cport;
@@ -34,7 +36,7 @@ public class Controller {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
-                            handleConnection(controllerSocket);
+                            handleOperation(controllerSocket);
                         }
                     }).start();
                 }catch(Exception e){
@@ -46,24 +48,89 @@ public class Controller {
         }
     }
 
-    public void handleConnection(Socket controllerSocket){
+    public void handleOperation(Socket controllerSocket){
         try{
             BufferedReader reader = new BufferedReader(new InputStreamReader(controllerSocket.getInputStream()));
             String message = reader.readLine();
-            if (message.startsWith("JOIN")) {
-                String[] parts = message.split(" ");
-                int dstorePort = Integer.parseInt(parts[1]);
-                if (!dstorePortsConnected.contains(dstorePort)) {
-                    dstorePortsConnected.add(dstorePort);
-                    System.out.println("Added Dstore port " + dstorePort + " to connected list.");
-                }else{
-                    System.out.println("Dstore port " + dstorePort + " is already connected.");
-                }
+            if (message.startsWith("JOIN ")){
+                handleJoinOperation(message);
+            }else if (message.startsWith("STORE ")){
+                handleStoreOperation(controllerSocket, message);
+            }else{
+                return;
             }
         }catch(Exception e){
             System.err.println("ERROR: Could not read message from controller socket: " + e);
         }
     }
+
+    public void handleJoinOperation(String message){
+        String[] parts = message.split(" ");
+        int dstorePort = Integer.parseInt(parts[1]);
+        if (!dstorePortsConnected.contains(dstorePort)) {
+            dstorePortsConnected.add(dstorePort);
+            System.out.println("Added Dstore port " + dstorePort + " to connected list.");
+            System.out.println("List of Dstore ports connected: " + dstorePortsConnected);
+        }else{
+            System.out.println("Dstore port " + dstorePort + " is already connected.");
+            System.out.println("List of Dstore ports connected: " + dstorePortsConnected);
+        }
+    }
+
+    public void handleStoreOperation(Socket controllerSocket, String message){
+        String[] parts = message.split(" ");
+        if (parts.length < 3){
+            System.err.println("ERROR: Invalid STORE message format.");
+        }
+        String filename = parts[1];
+        long filesize = Long.parseLong(parts[2]);
+        if (dstorePortsConnected.size() < replicationFactor){
+            try{
+                PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
+                out.println("ERROR_NOT_ENOUGH_DSTORES");
+                System.err.println("ERROR: Not enough Dstores connected to store " + filename);
+            }catch (Exception e){
+                System.err.println("ERROR: Could not send NOT_ENOUGH_DSTORES to controller socket: " + e);
+            }
+        }
+        if (index.getFileInformation(filename) != null){
+            try{
+                PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
+                out.println("ERROR_FILE_ALREADY_EXISTS");
+                System.err.println("ERROR: File " + filename + " already exists.");
+            } catch (Exception e) {
+                System.err.println("ERROR: Could not send FILE_ALREADY_EXISTS to controller socket: " + e);
+            }
+        }
+        ArrayList<Integer> selectedDstores = selectDstores();
+        index.addFile(filename, filesize, selectedDstores);
+        try{
+            PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
+            StringBuilder response = new StringBuilder("STORE_TO");
+            for (Integer port : selectedDstores) {
+                response.append(" ").append(port);
+            }
+            out.println(response);
+            // Add code here for waiting for STORE_ACK from each DStore, below it is for an immediate ACK
+            index.updateFileStatus(filename, Index.FileStatus.STORE_COMPLETE);
+            out.println("STORE_COMPLETE");
+        } catch (Exception e) {
+            System.err.println("ERROR: HELP");
+        }
+
+    }
+
+    private ArrayList<Integer> selectDstores() { //Ensure files are distributed evenly among Dstores
+        ArrayList<Integer> sorted = new ArrayList<>(dstorePortsConnected);
+        Collections.sort(sorted);
+        ArrayList<Integer> selected = new ArrayList<>();
+        for (int i = 0; i < replicationFactor; i++) {
+            selected.add(sorted.get(i));
+        }
+        return selected;
+    }
+
+
 
     public static void main(String[] args) {
         int cport = Integer.parseInt(args[0]);

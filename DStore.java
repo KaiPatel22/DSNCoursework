@@ -41,6 +41,7 @@ public class DStore {
             controllerSocket = new Socket(InetAddress.getLocalHost(), cport);
             System.out.println("Connected to controller on port " + controllerSocket.getPort() + " with address " + controllerSocket.getInetAddress());
             sendJoinMessage(); // Join message to controller
+            sendStoreMessage("this_is_filename", 123); // Store message, remove message from here later (only for testing)
         } catch (IOException e) {
             System.err.println("Error connecting to controller: " + e.getMessage());
         }
@@ -50,6 +51,12 @@ public class DStore {
         PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
         out.println("JOIN " + port);
         System.out.println("Sent JOIN message to controller");
+    }
+
+    private void sendStoreMessage(String fileName, long filesize) throws IOException {
+        PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
+        out.println("STORE " + fileName + " " + filesize);
+        System.out.println("Sent STORE message to controller");
     }
 
     public static void main(String[] args) {
