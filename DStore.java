@@ -31,7 +31,6 @@ public class DStore {
                     System.err.println("ERROR: Could not accept connection: " + e);
                 }
             }
-
         }catch (Exception e){
             System.err.println("ERROR: Could not create DStore socket: " + e);
         }
