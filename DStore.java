@@ -40,10 +40,10 @@ public class DStore {
         try {
             controllerSocket = new Socket(InetAddress.getLocalHost(), cport);
             System.out.println("Connected to controller on port " + controllerSocket.getPort() + " with address " + controllerSocket.getInetAddress());
-            sendJoinMessage(); // Join message to controller
-            sendStoreMessage("this_is_filename", 123); // Store message, remove message from here later (only for testing)
+//            sendJoinMessage(); // Join message to controller
+            sendStoreMessage("supercoolfile", 123); // Store message, remove message from here later (only for testing)
         } catch (IOException e) {
-            System.err.println("Error connecting to controller: " + e.getMessage());
+            System.err.println("ERROR: Connecting to controller was not performed: " + e.getMessage());
         }
     }
 

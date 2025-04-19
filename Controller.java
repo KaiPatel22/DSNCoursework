@@ -4,14 +4,19 @@ import java.io.PrintWriter;
 import java.net.*;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class Controller {
     private int cport;
     private int replicationFactor;
     private int timeout;
     private int rebalance_period;
-    static Index index; // Instance object of index, final because it doesn't differ between controller objects
-    private ArrayList<Integer> dstorePortsConnected; // This differs from what the index stores, index only keeps track of files but this list keeps track of dstore ports connected.
+    static Index index;
+    private ArrayList<Integer> dstorePortsConnected; // Keeps track of dstore ports connected.
+    private final Map<String, CountDownLatch> filenameCountdownMap = Collections.synchronizedMap(new HashMap<>()); // Map to link the filename and the countdown before the STORE_ACK timeouts.
 
     public Controller(int cport, int replicationFactor, int timeout, int rebalance_period) {
         this.cport = cport;
@@ -54,9 +59,12 @@ public class Controller {
             String message = reader.readLine();
             if (message.startsWith("JOIN ")){
                 handleJoinOperation(message);
-            }else if (message.startsWith("STORE ")){
+            }else if (message.startsWith("STORE ")) {
                 handleStoreOperation(controllerSocket, message);
+            }else if (message.startsWith("STORE_ACK ")){
+                handleSTORE_ACK(message);
             }else{
+                System.err.println("ERROR: Invalid message format.");
                 return;
             }
         }catch(Exception e){
@@ -65,6 +73,7 @@ public class Controller {
     }
 
     public void handleJoinOperation(String message){
+        System.out.println("JOIN message recieved!");
         String[] parts = message.split(" ");
         int dstorePort = Integer.parseInt(parts[1]);
         if (!dstorePortsConnected.contains(dstorePort)) {
@@ -78,13 +87,14 @@ public class Controller {
     }
 
     public void handleStoreOperation(Socket controllerSocket, String message){
+        System.out.println("STORE message recieved!");
         String[] parts = message.split(" ");
         if (parts.length < 3){
             System.err.println("ERROR: Invalid STORE message format.");
         }
         String filename = parts[1];
         long filesize = Long.parseLong(parts[2]);
-        if (dstorePortsConnected.size() < replicationFactor){
+        if (dstorePortsConnected.size() < replicationFactor){ // NOT ENOUGH DSTORES CHECK
             try{
                 PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
                 out.println("ERROR_NOT_ENOUGH_DSTORES");
@@ -92,8 +102,9 @@ public class Controller {
             }catch (Exception e){
                 System.err.println("ERROR: Could not send NOT_ENOUGH_DSTORES to controller socket: " + e);
             }
+            return;
         }
-        if (index.getFileInformation(filename) != null){
+        if (index.getFileInformation(filename) != null){ // FILE ALREADY EXISTS CHECK
             try{
                 PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
                 out.println("ERROR_FILE_ALREADY_EXISTS");
@@ -111,9 +122,25 @@ public class Controller {
                 response.append(" ").append(port);
             }
             out.println(response);
-            // Add code here for waiting for STORE_ACK from each DStore, below it is for an immediate ACK
-            index.updateFileStatus(filename, Index.FileStatus.STORE_COMPLETE);
-            out.println("STORE_COMPLETE");
+
+            CountDownLatch latch = new CountDownLatch(selectedDstores.size());
+            filenameCountdownMap.put(filename, latch);
+            try{
+                boolean allAcksRecieved = latch.await(timeout, TimeUnit.MILLISECONDS);
+                if (allAcksRecieved) {
+                    index.updateFileStatus(filename, Index.FileStatus.STORE_COMPLETE);
+                    out.println("STORE_COMPLETE");
+                    System.out.println("File " + filename + " stored successfully on Dstores: " + selectedDstores);
+                }else{
+                    System.err.println("ERROR: Timeout waiting for STORE_ACK for file " + filename);
+                    index.removeFile(filename);
+                }
+            }catch (Exception e){
+                System.err.println("ERROR: Could not wait for STORE_ACK: " + e);
+            }finally {
+                filenameCountdownMap.remove(filename);
+            }
+
         } catch (Exception e) {
             System.err.println("ERROR: HELP");
         }
@@ -130,6 +157,19 @@ public class Controller {
         return selected;
     }
 
+    public void handleSTORE_ACK(String message){
+        System.out.println("STORE_ACK message recieved!");
+        String[] parts = message.split(" ");
+        if (parts.length < 2){
+            System.err.println("ERROR: Invalid STORE_ACK message");
+        }
+        String filename = parts[1];
+        CountDownLatch latch = filenameCountdownMap.get(filename);
+        if (latch != null){
+            latch.countDown();
+            System.out.println("Received STORE_ACK for file " + filename);
+        }
+    }
 
 
     public static void main(String[] args) {
