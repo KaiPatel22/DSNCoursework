@@ -56,16 +56,18 @@ public class Controller {
     public void handleOperation(Socket controllerSocket){
         try{
             BufferedReader reader = new BufferedReader(new InputStreamReader(controllerSocket.getInputStream()));
-            String message = reader.readLine();
-            if (message.startsWith("JOIN ")){
-                handleJoinOperation(message);
-            }else if (message.startsWith("STORE ")) {
-                handleStoreOperation(controllerSocket, message);
-            }else if (message.startsWith("STORE_ACK ")){
-                handleSTORE_ACK(message);
-            }else{
-                System.err.println("ERROR: Invalid message format.");
-                return;
+            String message;
+            while ((message = reader.readLine()) != null) {
+                if (message.startsWith("JOIN ")){
+                    handleJoinOperation(message);
+                }else if (message.startsWith("STORE ")) {
+                    handleStoreOperation(controllerSocket, message);
+                }else if (message.startsWith("STORE_ACK ")){
+                    handleSTORE_ACK(message);
+                }else{
+                    System.err.println("ERROR: Invalid message format.");
+                    return;
+                }
             }
         }catch(Exception e){
             System.err.println("ERROR: Could not read message from controller socket: " + e);
@@ -87,7 +89,7 @@ public class Controller {
     }
 
     public void handleStoreOperation(Socket controllerSocket, String message){
-        System.out.println("STORE message recieved!");
+        System.out.println("STORE message recieved by Controller!");
         String[] parts = message.split(" ");
         if (parts.length < 3){
             System.err.println("ERROR: Invalid STORE message format.");
@@ -147,7 +149,7 @@ public class Controller {
 
     }
 
-    private ArrayList<Integer> selectDstores() { //Ensure files are distributed evenly among Dstores
+    private ArrayList<Integer> selectDstores() { //Ensure files are distributed evenly among Dstores (this is probs wrong ngl)
         ArrayList<Integer> sorted = new ArrayList<>(dstorePortsConnected);
         Collections.sort(sorted);
         ArrayList<Integer> selected = new ArrayList<>();
