@@ -127,24 +127,25 @@ public class Controller {
 
             CountDownLatch latch = new CountDownLatch(selectedDstores.size());
             filenameCountdownMap.put(filename, latch);
-            try{
-                boolean allAcksRecieved = latch.await(timeout, TimeUnit.MILLISECONDS);
-                if (allAcksRecieved) {
-                    index.updateFileStatus(filename, Index.FileStatus.STORE_COMPLETE);
-                    out.println("STORE_COMPLETE");
-                    System.out.println("File " + filename + " stored successfully on Dstores: " + selectedDstores);
-                }else{
-                    System.err.println("ERROR: Timeout waiting for STORE_ACK for file " + filename);
-                    index.removeFile(filename);
+            new Thread(() -> {
+                try{
+                    boolean allAcksRecieved = latch.await(timeout, TimeUnit.MILLISECONDS);
+                    if (allAcksRecieved) {
+                        index.updateFileStatus(filename, Index.FileStatus.STORE_COMPLETE);
+                        out.println("STORE_COMPLETE");
+                        System.out.println("File " + filename + " stored successfully on Dstores: " + selectedDstores);
+                    }else{
+                        System.err.println("ERROR: Timeout waiting for STORE_ACK for file " + filename);
+                        index.removeFile(filename);
+                    }
+                }catch (Exception e){
+                    System.err.println("ERROR: Could not wait for STORE_ACK: " + e);
+                }finally {
+                    filenameCountdownMap.remove(filename);
                 }
-            }catch (Exception e){
-                System.err.println("ERROR: Could not wait for STORE_ACK: " + e);
-            }finally {
-                filenameCountdownMap.remove(filename);
-            }
-
+            }).start();
         } catch (Exception e) {
-            System.err.println("ERROR: HELP");
+            System.err.println("ERROR: Could not send STORE_TO message to controller socket: " + e);
         }
 
     }
@@ -156,6 +157,7 @@ public class Controller {
         for (int i = 0; i < replicationFactor; i++) {
             selected.add(sorted.get(i));
         }
+        System.out.println("The Dstore ports selected to store the file are " + selected);
         return selected;
     }
 

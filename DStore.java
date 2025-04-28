@@ -48,8 +48,9 @@ public class DStore {
             System.out.println("Connected to controller on port " + controllerSocket.getPort() + " with address " + controllerSocket.getInetAddress());
             sendJoinMessage(); // Join message to controller
             sendStoreMessage("supercoolfile", 123); // Store message, remove message from here later (only for testing)
+            Thread.sleep(5000);
             sendStore_Ack("supercoolfile");
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.err.println("ERROR: Connecting to controller was not performed: " + e.getMessage());
         }
     }
