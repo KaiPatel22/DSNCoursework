@@ -1,0 +1,17 @@
+Connection established to port 4321
+Message sent to port 4321: STORE test1.txt 24
+Store operation started for file test1.txt
+Message received from port 4321: STORE_TO 4322
+Controller replied to store test1.txt in these Dstores: 4322 
+Connection established to port 4322
+Message sent to port 4322: STORE test1.txt 24
+Storing file test1.txt to Dstore 4322
+Message received from port 4322: ACK
+ACK received from Dstore 4322 to store file test1.txt
+Store of file test1.txt to Dstore 4322 successfully completed
+Message received from port 4321: STORE_COMPLETE
+Store operation for file test1.txt completed
+Message sent to port 4321: STORE test1.txt 24
+Store operation started for file test1.txt
+Message received from port 4321: ERROR_FILE_ALREADY_EXISTS
+File to store test1.txt already exists in the data store

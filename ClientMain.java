@@ -22,14 +22,14 @@ public class ClientMain {
 		// launch a single client
 		testClient(cport, timeout, downloadFolder, uploadFolder);
 
-		// launch a number of concurrent clients, each doing the same operations
-		for (int i = 0; i < 10; i++) {
-			new Thread() {
-				public void run() {
-					test2Client(cport, timeout, downloadFolder, uploadFolder);
-				}
-			}.start();
-		}
+//		// launch a number of concurrent clients, each doing the same operations
+//		for (int i = 0; i < 10; i++) {
+//			new Thread() {
+//				public void run() {
+//					test2Client(cport, timeout, downloadFolder, uploadFolder);
+//				}
+//			}.start();
+//		}
 	}
 
 //	public static void test2Client(int cport, int timeout, File downloadFolder, File uploadFolder) {
@@ -74,26 +74,26 @@ public class ClientMain {
 //		}
 //	}
 //
-//	public static void testClient(int cport, int timeout, File downloadFolder, File uploadFolder) {
-//		Client client = null;
-//
-//		try {
-//
-//			client = new Client(cport, timeout, Logger.LoggingType.ON_FILE_AND_TERMINAL);
-//
-//			try { client.connect(); } catch(IOException e) { e.printStackTrace(); return; }
-//
+	public static void testClient(int cport, int timeout, File downloadFolder, File uploadFolder) {
+		Client client = null;
+
+		try {
+
+			client = new Client(cport, timeout, Logger.LoggingType.ON_FILE_AND_TERMINAL);
+
+			try { client.connect(); } catch(IOException e) { e.printStackTrace(); return; }
+
 //			try { list(client); } catch(IOException e) { e.printStackTrace(); }
-//
-//			// store first file in the to_store folder twice, then store second file in the to_store folder once
-//			File fileList[] = uploadFolder.listFiles();
-//			if (fileList.length > 0) {
-//				try { client.store(fileList[0]); } catch(IOException e) { e.printStackTrace(); }
-//				try { client.store(fileList[0]); } catch(IOException e) { e.printStackTrace(); }
-//			}
-//			if (fileList.length > 1) {
-//				try { client.store(fileList[1]); } catch(IOException e) { e.printStackTrace(); }
-//			}
+
+			// store first file in the to_store folder twice, then store second file in the to_store folder once
+			File fileList[] = uploadFolder.listFiles();
+			if (fileList.length > 0) {
+				try { client.store(fileList[0]); } catch(IOException e) { e.printStackTrace(); }
+				try { client.store(fileList[0]); } catch(IOException e) { e.printStackTrace(); }
+			}
+			if (fileList.length > 1) {
+				try { client.store(fileList[1]); } catch(IOException e) { e.printStackTrace(); }
+			}
 //
 //			String list[] = null;
 //			try { list = list(client); } catch(IOException e) { e.printStackTrace(); }
@@ -110,11 +110,11 @@ public class ClientMain {
 //
 //			try { list(client); } catch(IOException e) { e.printStackTrace(); }
 //
-//		} finally {
-//			if (client != null)
-//				try { client.disconnect(); } catch(Exception e) { e.printStackTrace(); }
-//		}
-//	}
+		} finally {
+			if (client != null)
+				try { client.disconnect(); } catch(Exception e) { e.printStackTrace(); }
+		}
+	}
 
 	public static String[] list(Client client) throws IOException, NotEnoughDstoresException {
 		System.out.println("Retrieving list of files...");
