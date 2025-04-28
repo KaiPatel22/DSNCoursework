@@ -114,6 +114,7 @@ public class Controller {
             } catch (Exception e) {
                 System.err.println("ERROR: Could not send FILE_ALREADY_EXISTS to controller socket: " + e);
             }
+            return;
         }
         ArrayList<Integer> selectedDstores = selectDstores();
         index.addFile(filename, filesize, selectedDstores);
