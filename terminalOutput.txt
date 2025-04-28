@@ -1,0 +1,63 @@
+Testing STORE operating using Client
+
+Controller:
+> java Controller 4321 1 60000 120
+Controller started on port 4321
+Waiting for connection
+Connected Successfully on port 56255 with address /127.0.0.1
+Waiting for connection
+JOIN message recieved!
+Added Dstore port 4322 to connected list.
+List of Dstore ports connected: [4322]
+Connected Successfully on port 56256 with address /127.0.0.1
+Waiting for connection
+STORE message recieved by Controller!
+The Dstore ports selected to store the file are [4322]
+STORE_ACK message recieved!
+Received STORE_ACK for file test1.txt
+STORE message recieved by Controller!
+ERROR: File test1.txt already exists.
+File test1.txt stored successfully on Dstores: [4322]
+
+DStore:
+> java DStore 4322 4321 120 "downloads"
+Connected to controller on port 4321 with address Kais-MacBook-Pro.local/127.0.0.1
+Sent JOIN message to controller
+Waiting for connection
+Connected Successfully on port 56257 with address /127.0.0.1
+Waiting for connection
+STORE message received by DStore!
+Sent ACK message to client
+File test1.txt stored in DStore!
+Sent STORE_ACK message for test1.txt to controller!
+
+Client:
+> java ClientMain.java 4321 60000
+Connection established to port 4321
+Message sent to port 4321: STORE test1.txt 24
+Store operation started for file test1.txt
+Message received from port 4321: STORE_TO 4322
+Controller replied to store test1.txt in these Dstores: 4322
+Connection established to port 4322
+Message sent to port 4322: STORE test1.txt 24
+Storing file test1.txt to Dstore 4322
+Message received from port 4322: ACK
+ACK received from Dstore 4322 to store file test1.txt
+Store of file test1.txt to Dstore 4322 successfully completed
+Message received from port 4321: STORE_COMPLETE
+Store operation for file test1.txt completed
+Message sent to port 4321: STORE test1.txt 24
+Store operation started for file test1.txt
+Message received from port 4321: ERROR_FILE_ALREADY_EXISTS
+File to store test1.txt already exists in the data store
+FileAlreadyExistsException: Error trying to store file test1.txt - file already exists
+        at Client.a(SourceFile:395)
+        at Client.store(SourceFile:196)
+        at Client.store(SourceFile:166)
+        at ClientMain.testClient(ClientMain.java:92)
+        at ClientMain.main(ClientMain.java:23)
+        at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+        at jdk.compiler/com.sun.tools.javac.launcher.Main.execute(Main.java:484)
+        at jdk.compiler/com.sun.tools.javac.launcher.Main.run(Main.java:208)
+        at jdk.compiler/com.sun.tools.javac.launcher.Main.main(Main.java:135)
