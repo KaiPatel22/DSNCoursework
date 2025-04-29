@@ -53,7 +53,7 @@ public class Controller {
         }
     }
 
-    public void handleOperation(Socket controllerSocket){
+    private void handleOperation(Socket controllerSocket){
         try{
             BufferedReader reader = new BufferedReader(new InputStreamReader(controllerSocket.getInputStream()));
             String message;
@@ -62,8 +62,10 @@ public class Controller {
                     handleJoinOperation(message);
                 }else if (message.startsWith("STORE ")) {
                     handleStoreOperation(controllerSocket, message);
-                }else if (message.startsWith("STORE_ACK ")){
+                }else if (message.startsWith("STORE_ACK ")) {
                     handleSTORE_ACK(message);
+                }else if (message.startsWith("LOAD ")){
+                    handleLoadOperation(controllerSocket, message);
                 }else{
                     System.err.println("ERROR: Invalid message format.");
                     return;
@@ -74,7 +76,7 @@ public class Controller {
         }
     }
 
-    public void handleJoinOperation(String message){
+    private void handleJoinOperation(String message){
         System.out.println("JOIN message recieved!");
         String[] parts = message.split(" ");
         int dstorePort = Integer.parseInt(parts[1]);
@@ -88,11 +90,11 @@ public class Controller {
         }
     }
 
-    public void handleStoreOperation(Socket controllerSocket, String message){
+    private void handleStoreOperation(Socket controllerSocket, String message){
         System.out.println("STORE message recieved by Controller!");
         String[] parts = message.split(" ");
         if (parts.length < 3){
-            System.err.println("ERROR: Invalid STORE message format.");
+            System.err.println("ERROR: Malformed STORE message");
         }
         String filename = parts[1];
         long filesize = Long.parseLong(parts[2]);
@@ -162,11 +164,11 @@ public class Controller {
         return selected;
     }
 
-    public void handleSTORE_ACK(String message){
+    private void handleSTORE_ACK(String message){
         System.out.println("STORE_ACK message recieved!");
         String[] parts = message.split(" ");
         if (parts.length < 2){
-            System.err.println("ERROR: Invalid STORE_ACK message");
+            System.err.println("ERROR: Malformed STORE_ACK message");
         }
         String filename = parts[1];
         CountDownLatch latch = filenameCountdownMap.get(filename);
@@ -174,6 +176,48 @@ public class Controller {
             latch.countDown();
             System.out.println("Received STORE_ACK for file " + filename);
         }
+    }
+
+    private void handleLoadOperation(Socket controllerSocket, String message){
+        System.out.println("LOAD message recieved!");
+        String[] parts = message.split(" ");
+        if (parts.length < 2){
+            System.err.println("ERROR: Malformed LOAD message");
+        }
+        String filename = parts[1];
+        Index.FileInformation fileInformation = index.getFileInformation(filename);
+        if (fileInformation == null){ // FILE DOES NOT EXIST CHECK
+            try {
+                PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
+                out.println("ERROR_FILE_DOES_NOT_EXIST");
+                System.err.println("ERROR: File " + filename + " does not exist");
+            } catch(Exception e) {
+                System.err.println("ERROR: Could not send ERROR_FILE_DOES_NOT_EXIST: " + e);
+            }
+            return;
+        }
+        if (dstorePortsConnected.size() < replicationFactor){ // NOT ENOUGH DSTORES CHECK
+            try{
+                PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
+                out.println("ERROR_NOT_ENOUGH_DSTORES");
+                System.err.println("ERROR: Not enough DStores to load " + filename);
+            }catch (Exception e){
+                System.err.println("ERROR: Could not send NOT_ENOUGH_DSTORES to controller socket: " + e);
+            }
+            return;
+        }
+        ArrayList<Integer> listOfPorts = fileInformation.getStoragePorts();
+        int chosenPort = listOfPorts.get(0);
+        long fileSize = fileInformation.getFileSize();
+
+        try{
+            PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
+            out.println("LOAD_FROM " + chosenPort + " " + fileSize);
+            System.out.println("Sent LOAD_FROM " + chosenPort + " " + fileSize + " to client");
+        }catch (Exception e){
+            System.err.println("ERROR: Could not send LOAD_FROM message to client: " + e);
+        }
+
     }
 
 

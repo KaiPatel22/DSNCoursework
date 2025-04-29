@@ -52,12 +52,20 @@ public class DStore {
         }
     }
 
-    public void handleOperation(Socket dstoreSocket){
+    private void sendJoinMessage() throws IOException {
+        PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
+        out.println("JOIN " + port);
+        System.out.println("Sent JOIN message to controller");
+    }
+
+    private void handleOperation(Socket dstoreSocket){
         try{
             BufferedReader reader = new BufferedReader(new InputStreamReader(dstoreSocket.getInputStream()));
             String message = reader.readLine();
-            if (message.startsWith("STORE ")){
+            if (message.startsWith("STORE ")) {
                 handleStoreOperation(dstoreSocket, message);
+            }else if (message.startsWith("LOAD_DATA ")) {
+                handleLoad_DataOperation(dstoreSocket, message);
             } else {
                 System.err.println("ERROR: Invalid message format.");
             }
@@ -70,7 +78,7 @@ public class DStore {
         System.out.println("STORE message received by DStore!");
         String[] parts = message.split(" ");
         if (parts.length < 3){
-            System.err.println("ERROR: Invalid STORE message format.");
+            System.err.println("ERROR: Malformed STORE message");
         }
         String filename = parts[1];
         long filesize = Long.parseLong(parts[2]);
@@ -81,7 +89,7 @@ public class DStore {
             System.out.println("Sent ACK message to client");
 
             InputStream inputStream = dStoreSocket.getInputStream();
-            byte[] fileBytes = new byte[(int)filesize];
+            byte[] fileBytes = inputStream.readNBytes((int) filesize);
             int totalRead = 0;
             while(totalRead < filesize){
                 int read = inputStream.read(fileBytes, totalRead, (int)(filesize - totalRead));
@@ -111,10 +119,36 @@ public class DStore {
         }
     }
 
-    private void sendJoinMessage() throws IOException {
-        PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
-        out.println("JOIN " + port);
-        System.out.println("Sent JOIN message to controller");
+    private void handleLoad_DataOperation(Socket dStoreSocket, String message){
+        System.out.println("LOAD_DATA message received!");
+        String[] parts = message.split(" ");
+        if (parts.length < 2){
+            System.err.println("ERROR: Malformed LOAD_DATA message");
+        }
+        String filename = parts[1];
+        File file = new File(file_folder, filename);
+        if (!file.exists()){
+            System.err.println("ERROR: File " + filename + " does not exist in DStore");
+            try{
+                dStoreSocket.close();
+            }catch (Exception e){
+                System.err.println("ERROR: Could not close socket: " + e.getMessage());
+            }
+            return;
+        }
+        try {
+            FileInputStream fileInputStream = new FileInputStream(file);
+            BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(dStoreSocket.getOutputStream());
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                bufferedOutputStream.write(buffer, 0, bytesRead);
+            }
+            bufferedOutputStream.flush();
+            System.out.println("Contents of " + filename + " sent to client!");
+        }catch (Exception e){
+            System.err.println("ERROR: Could not handle LOAD_DATA operation: " + e.getMessage());
+        }
     }
 
     public static void main(String[] args) {
