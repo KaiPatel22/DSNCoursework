@@ -52,9 +52,8 @@ public class DStore {
         }
     }
 
-    private void sendJoinMessage() throws IOException {
-        PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
-        out.println("JOIN " + port);
+    private void sendJoinMessage() {
+        sendMessage(controllerSocket, "JOIN " + port);
         System.out.println("Sent JOIN message to controller");
     }
 
@@ -84,8 +83,7 @@ public class DStore {
         long filesize = Long.parseLong(parts[2]);
 
         try{
-            PrintWriter out = new PrintWriter(dStoreSocket.getOutputStream(), true);
-            out.println("ACK");
+            sendMessage(dStoreSocket, "ACK");
             System.out.println("Sent ACK message to client");
 
             InputStream inputStream = dStoreSocket.getInputStream();
@@ -103,21 +101,14 @@ public class DStore {
                 fileOutputStream.write(fileBytes);
             }
             System.out.println("File " + filename + " stored in DStore!");
-            sendStore_Ack(filename);
+
+            sendMessage(controllerSocket, "STORE_ACK " + filename);
+            System.out.println("Sent STORE_ACK message for " + filename + " to controller!");
         }catch(Exception e){
             System.err.println("ERROR: Could not handle STORE operation: " + e.getMessage());
         }
     }
 
-    private void sendStore_Ack(String filename){
-        try{
-            PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
-            out.println("STORE_ACK " + filename);
-            System.out.println("Sent STORE_ACK message for " + filename + " to controller!");
-        }catch(Exception e){
-            System.err.println("ERROR: Could not send STORE_ACK message: " + e.getMessage());
-        }
-    }
 
     private void handleLoad_DataOperation(Socket dStoreSocket, String message){
         System.out.println("LOAD_DATA message received!");
@@ -148,6 +139,16 @@ public class DStore {
             System.out.println("Contents of " + filename + " sent to client!");
         }catch (Exception e){
             System.err.println("ERROR: Could not handle LOAD_DATA operation: " + e.getMessage());
+        }
+    }
+
+    private void sendMessage(Socket socket, String message){
+        try {
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println(message);
+            System.err.println(message);
+        } catch (Exception e) {
+            System.err.println("ERROR: Could not send message: " + message + "\n" + e);
         }
     }
 

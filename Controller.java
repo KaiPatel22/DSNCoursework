@@ -17,6 +17,7 @@ public class Controller {
     static Index index;
     private ArrayList<Integer> dstorePortsConnected; // Keeps track of dstore ports connected.
     private final Map<String, CountDownLatch> filenameCountdownMap = Collections.synchronizedMap(new HashMap<>()); // Map to link the filename and the countdown before the STORE_ACK timeouts.
+    private Integer lastUsedPort = null; // For LOAD operation
 
     public Controller(int cport, int replicationFactor, int timeout, int rebalance_period) {
         this.cport = cport;
@@ -101,23 +102,14 @@ public class Controller {
         String filename = parts[1];
         long filesize = Long.parseLong(parts[2]);
         if (dstorePortsConnected.size() < replicationFactor){ // NOT ENOUGH DSTORES CHECK
-            try{
-                PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
-                out.println("ERROR_NOT_ENOUGH_DSTORES");
-                System.err.println("ERROR: Not enough Dstores connected to store " + filename);
-            }catch (Exception e){
-                System.err.println("ERROR: Could not send NOT_ENOUGH_DSTORES to controller socket: " + e);
-            }
+            sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
+            System.err.println("ERROR: Not enough Dstores connected to store " + filename);
+
             return;
         }
         if (index.getFileInformation(filename) != null){ // FILE ALREADY EXISTS CHECK
-            try{
-                PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
-                out.println("ERROR_FILE_ALREADY_EXISTS");
-                System.err.println("ERROR: File " + filename + " already exists.");
-            } catch (Exception e) {
-                System.err.println("ERROR: Could not send FILE_ALREADY_EXISTS to controller socket: " + e);
-            }
+            sendMessage(controllerSocket, "ERROR_FILE_ALREADY_EXISTS");
+            System.err.println("ERROR: File " + filename + " already exists.");
             return;
         }
         ArrayList<Integer> selectedDstores = selectDstores();
@@ -181,6 +173,7 @@ public class Controller {
     }
 
     private void handleLoadOperation(Socket controllerSocket, String message){
+        lastUsedPort = null;
         System.out.println("LOAD message recieved!");
         String[] parts = message.split(" ");
         if (parts.length != 2){
@@ -189,37 +182,21 @@ public class Controller {
         String filename = parts[1];
         Index.FileInformation fileInformation = index.getFileInformation(filename);
         if (fileInformation == null){ // FILE DOES NOT EXIST CHECK
-            try {
-                PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
-                out.println("ERROR_FILE_DOES_NOT_EXIST");
-                System.err.println("ERROR: File " + filename + " does not exist");
-            } catch(Exception e) {
-                System.err.println("ERROR: Could not send ERROR_FILE_DOES_NOT_EXIST: " + e);
-            }
+            sendMessage(controllerSocket, "ERROR_FILE_DOES_NOT_EXIST");
+            System.err.println("ERROR: File " + filename + " does not exist");
             return;
         }
         if (dstorePortsConnected.size() < replicationFactor){ // NOT ENOUGH DSTORES CHECK
-            try{
-                PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
-                out.println("ERROR_NOT_ENOUGH_DSTORES");
-                System.err.println("ERROR: Not enough DStores to load " + filename);
-            }catch (Exception e){
-                System.err.println("ERROR: Could not send NOT_ENOUGH_DSTORES to controller socket: " + e);
-            }
+            sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
+            System.err.println("ERROR: Not enough DStores to load " + filename);
             return;
         }
         ArrayList<Integer> listOfPorts = fileInformation.getStoragePorts();
         int chosenPort = listOfPorts.get(0);
+        lastUsedPort = chosenPort;
         long fileSize = fileInformation.getFileSize();
-
-        try{
-            PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
-            out.println("LOAD_FROM " + chosenPort + " " + fileSize);
-            System.out.println("Sent LOAD_FROM " + chosenPort + " " + fileSize + " to client");
-        }catch (Exception e){
-            System.err.println("ERROR: Could not send LOAD_FROM message to client: " + e);
-        }
-
+        sendMessage(controllerSocket, "LOAD_FROM " + chosenPort + " " + fileSize);
+        System.out.println("Sent LOAD_FROM " + chosenPort + " " + fileSize + " to client");
     }
 
     private void handleReloadOperation(Socket controllerSocket, String message){
@@ -229,6 +206,38 @@ public class Controller {
             System.err.println("ERROR: Malformed RELOAD message");
         }
         String filename = parts[1];
+        Index.FileInformation fileInformation = index.getFileInformation(filename);
+        if (fileInformation == null) {
+            sendMessage(controllerSocket, "ERROR_FILE_DOES_NOT_EXIST");
+            System.err.println("ERROR: File " + filename + " does not exist");
+            return;
+        }
+
+        ArrayList<Integer> availableDstores = new ArrayList<>(fileInformation.getStoragePorts());
+        if (lastUsedPort != null) {
+            availableDstores.remove(lastUsedPort);
+        }
+        if (availableDstores.isEmpty()) {
+            sendMessage(controllerSocket, "ERROR_LOAD");
+            System.err.println("ERROR: No alternative Dstore available for reload of file " + filename);
+            return;
+        }
+        int chosenPort = availableDstores.get(0);
+        lastUsedPort = chosenPort;
+        long fileSize = fileInformation.getFileSize();
+
+        sendMessage(controllerSocket, "LOAD_FROM " + chosenPort + " " + fileSize);
+        System.out.println("Sent LOAD_FROM " + chosenPort + " " + fileSize + " to client");
+    }
+
+    private void sendMessage(Socket socket, String message){
+        try {
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println(message);
+            System.err.println(message);
+        } catch (Exception e) {
+            System.err.println("ERROR: Could not send message: " + message + "\n" + e);
+        }
     }
 
 
