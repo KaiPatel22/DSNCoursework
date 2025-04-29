@@ -77,7 +77,7 @@ public class DStore {
     private void handleStoreOperation(Socket dStoreSocket, String message){
         System.out.println("STORE message received by DStore!");
         String[] parts = message.split(" ");
-        if (parts.length < 3){
+        if (parts.length != 3){
             System.err.println("ERROR: Malformed STORE message");
         }
         String filename = parts[1];
@@ -122,7 +122,7 @@ public class DStore {
     private void handleLoad_DataOperation(Socket dStoreSocket, String message){
         System.out.println("LOAD_DATA message received!");
         String[] parts = message.split(" ");
-        if (parts.length < 2){
+        if (parts.length != 2){
             System.err.println("ERROR: Malformed LOAD_DATA message");
         }
         String filename = parts[1];

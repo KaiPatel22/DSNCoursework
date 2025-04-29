@@ -64,8 +64,10 @@ public class Controller {
                     handleStoreOperation(controllerSocket, message);
                 }else if (message.startsWith("STORE_ACK ")) {
                     handleSTORE_ACK(message);
-                }else if (message.startsWith("LOAD ")){
+                }else if (message.startsWith("LOAD ")) {
                     handleLoadOperation(controllerSocket, message);
+                }else if (message.startsWith("RELOAD ")) {
+                    handleReloadOperation(controllerSocket, message);
                 }else{
                     System.err.println("ERROR: Invalid message format.");
                     return;
@@ -93,7 +95,7 @@ public class Controller {
     private void handleStoreOperation(Socket controllerSocket, String message){
         System.out.println("STORE message recieved by Controller!");
         String[] parts = message.split(" ");
-        if (parts.length < 3){
+        if (parts.length != 3){
             System.err.println("ERROR: Malformed STORE message");
         }
         String filename = parts[1];
@@ -167,7 +169,7 @@ public class Controller {
     private void handleSTORE_ACK(String message){
         System.out.println("STORE_ACK message recieved!");
         String[] parts = message.split(" ");
-        if (parts.length < 2){
+        if (parts.length != 2){
             System.err.println("ERROR: Malformed STORE_ACK message");
         }
         String filename = parts[1];
@@ -181,7 +183,7 @@ public class Controller {
     private void handleLoadOperation(Socket controllerSocket, String message){
         System.out.println("LOAD message recieved!");
         String[] parts = message.split(" ");
-        if (parts.length < 2){
+        if (parts.length != 2){
             System.err.println("ERROR: Malformed LOAD message");
         }
         String filename = parts[1];
@@ -218,6 +220,15 @@ public class Controller {
             System.err.println("ERROR: Could not send LOAD_FROM message to client: " + e);
         }
 
+    }
+
+    private void handleReloadOperation(Socket controllerSocket, String message){
+        System.out.println("RELOAD message recieved!");
+        String[] parts = message.split(" ");
+        if (parts.length != 2){
+            System.err.println("ERROR: Malformed RELOAD message");
+        }
+        String filename = parts[1];
     }
 
 
