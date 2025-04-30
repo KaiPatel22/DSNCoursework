@@ -71,6 +71,8 @@ public class Controller {
                     handleReloadOperation(controllerSocket, message);
                 }else if (message.startsWith("REMOVE ")) {
                     handleRemoveOperation(controllerSocket, message);
+                }else if (message.equals("LIST")){
+                    handleListOperation(controllerSocket, message);
                 }else{
                     System.err.println("ERROR: Invalid message format");
                     return;
@@ -292,6 +294,27 @@ public class Controller {
                 System.err.println("ERROR: Could not wait for REMOVE_ACK: " + e);
             }
         }).start();
+    }
+
+    private void handleListOperation(Socket controllerSocket, String message){
+        System.out.println("LIST message recieved!");
+        if (dstorePortsConnected.size() < replicationFactor){
+            sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
+            System.err.println("ERROR: Not enough Dstores to list files");
+            return;
+        }
+        ArrayList<String> arrayListOfFiles = index.getFileList();
+        if (arrayListOfFiles.isEmpty()){
+            sendMessage(controllerSocket, "LIST");
+            System.out.println("No files stored");
+        }else{
+            StringBuilder response = new StringBuilder("LIST");
+            for (String filename : arrayListOfFiles) {
+                response.append(" ").append(filename);
+            }
+            sendMessage(controllerSocket, response.toString());
+            System.out.println("Sent list of files to client: " + response);
+        }
     }
 
     private void sendMessage(Socket socket, String message){
