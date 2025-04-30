@@ -66,7 +66,7 @@ public class DStore {
             }else if (message.startsWith("LOAD_DATA ")) {
                 handleLoad_DataOperation(dstoreSocket, message);
             }else if (message.startsWith("REMOVE ")) {
-                handleRemoveOperation(dstoreSocket, message);
+                handleRemoveOperation(message);
             } else {
                 System.err.println("ERROR: Invalid message format.");
             }
@@ -144,7 +144,7 @@ public class DStore {
         }
     }
 
-    private void handleRemoveOperation(Socket dstoreSocket, String message){
+    private void handleRemoveOperation(String message){
         System.out.println("REMOVE message received!");
         String[] parts = message.split(" ");
         if (parts.length != 2){
@@ -154,13 +154,13 @@ public class DStore {
         File file = new File(file_folder, filename);
         if (!file.exists()){
             System.err.println("ERROR: File " + filename + " does not exist in DStore");
-            sendMessage(dstoreSocket, "ERROR_FILE_DOES_NOT_EXIST " + filename);
+            sendMessage(controllerSocket, "ERROR_FILE_DOES_NOT_EXIST " + filename);
             return;
         }else{
             try{
                 file.delete();
                 System.out.println("File " + filename + " deleted from DStore!");
-                sendMessage(dstoreSocket, "REMOVE_ACK " + filename);
+                sendMessage(controllerSocket, "REMOVE_ACK " + filename);
                 System.out.println("Sent REMOVE_ACK message for " + filename + " to controller!");
             }catch(Exception e){
                 System.err.println("ERROR: Could not delete file " + filename + ": " + e.getMessage());
