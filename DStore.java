@@ -111,7 +111,6 @@ public class DStore {
         }
     }
 
-
     private void handleLoad_DataOperation(Socket dStoreSocket, String message){
         System.out.println("LOAD_DATA message received!");
         String[] parts = message.split(" ");

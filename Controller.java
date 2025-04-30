@@ -269,14 +269,6 @@ public class Controller {
                 try {
                     Socket dstoreSocket = new Socket(InetAddress.getLocalHost(), port);
                     sendMessage(dstoreSocket, "REMOVE " + filename);
-//                    BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(dstoreSocket.getInputStream())); // Message sent from dstore and not client
-//                    String response = bufferedReader.readLine();
-//                    if (response.equals("REMOVE_ACK " + filename) || response.startsWith("ERROR_FILE_DOES_NOT_EXIST " + filename)) {
-//                        System.out.println("Received response from Dstore " + port + " for file " + filename + ": " + response);
-//                        latch.countDown();
-//                    } else {
-//                        System.err.println("ERROR: Invalid response from Dstore " + port + ": " + response);
-//                    }
                     dstoreSocket.close();
                 } catch (Exception e) {
                     System.err.println("ERROR: Could not connect to Dstore " + port + ": " + e);
