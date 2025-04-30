@@ -72,7 +72,7 @@ public class Controller {
                 }else if (message.startsWith("REMOVE ")) {
                     handleRemoveOperation(controllerSocket, message);
                 }else{
-                    System.err.println("ERROR: Invalid message format.");
+                    System.err.println("ERROR: Invalid message format");
                     return;
                 }
             }
