@@ -69,6 +69,8 @@ public class Controller {
                     handleLoadOperation(controllerSocket, message);
                 }else if (message.startsWith("RELOAD ")) {
                     handleReloadOperation(controllerSocket, message);
+                }else if (message.startsWith("REMOVE ")) {
+                    handleRemoveOperation(controllerSocket, message);
                 }else{
                     System.err.println("ERROR: Invalid message format.");
                     return;
@@ -228,6 +230,68 @@ public class Controller {
 
         sendMessage(controllerSocket, "LOAD_FROM " + chosenPort + " " + fileSize);
         System.out.println("Sent LOAD_FROM " + chosenPort + " " + fileSize + " to client");
+    }
+
+    private void handleRemoveOperation(Socket controllerSocket, String message){
+        System.out.println("REMOVE message recieved!");
+        String[] parts = message.split(" ");
+        if (parts.length != 2){
+            System.err.println("ERROR: Malformed REMOVE message");
+        }
+        String filename = parts[1];
+
+        Index.FileInformation fileInformation = index.getFileInformation(filename);
+        if (fileInformation == null) {
+            sendMessage(controllerSocket, "ERROR_FILE_DOES_NOT_EXIST");
+            System.err.println("ERROR: File " + filename + " does not exist");
+            return;
+        }
+        fileInformation.setStatus(Index.FileStatus.REMOVE_IN_PROGRESS);
+
+        if (dstorePortsConnected.size() < replicationFactor){
+            sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
+            System.err.println("ERROR: Not enough Dstores to remove " + filename);
+            return;
+        }
+
+        ArrayList<Integer> dStoresWithFile = fileInformation.getStoragePorts();
+        CountDownLatch latch = new CountDownLatch(dStoresWithFile.size());
+
+        for (Integer port : dStoresWithFile) {
+            new Thread(() -> {
+                try {
+                    Socket dstoreSocket = new Socket(InetAddress.getLocalHost(), port);
+                    sendMessage(dstoreSocket, "REMOVE " + filename);
+                    BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(dstoreSocket.getInputStream()));
+                    String response = bufferedReader.readLine();
+                    if (response.equals("REMOVE_ACK " + filename) || response.equals("ERROR_FILE_DOES_NOT_EXIST " + filename)) {
+                        System.out.println("Received REMOVE_ACK for file " + filename + " from Dstore " + port);
+                        latch.countDown();
+                    } else {
+                        System.err.println("ERROR: Invalid response from Dstore " + port + "\nResponse is: " + response);
+                    }
+                    dstoreSocket.close();
+                } catch (Exception e) {
+                    System.err.println("ERROR: Could not connect to Dstore " + port + ": " + e);
+                }
+            }).start();
+        }
+
+        new Thread(() -> {
+            try {
+                boolean allAcksRecieved = latch.await(timeout, TimeUnit.MILLISECONDS);
+                if (allAcksRecieved) {
+                    index.removeFile(filename);
+                    index.getFileInformation(filename).setStatus(Index.FileStatus.REMOVE_COMPLETE);
+                    sendMessage(controllerSocket, "REMOVE_COMPLETE");
+                    System.out.println("File " + filename + " removed successfully from Dstores: " + dStoresWithFile);
+                } else {
+                    System.err.println("ERROR: Timeout waiting for REMOVE_ACK for file " + filename);
+                }
+            } catch (Exception e) {
+                System.err.println("ERROR: Could not wait for REMOVE_ACK: " + e);
+            }
+        }).start();
     }
 
     private void sendMessage(Socket socket, String message){
