@@ -18,6 +18,8 @@ public class Controller {
     private ArrayList<Integer> dstorePortsConnected; // Keeps track of dstore ports connected.
     private final Map<String, CountDownLatch> filenameCountdownMap = Collections.synchronizedMap(new HashMap<>()); // Map to link the filename and the countdown before the STORE_ACK timeouts.
     private Integer lastUsedPort = null; // For LOAD operation
+    private final Map<String, CountDownLatch> removeCountdownMap = Collections.synchronizedMap(new HashMap<>());
+
 
     public Controller(int cport, int replicationFactor, int timeout, int rebalance_period) {
         this.cport = cport;
@@ -74,7 +76,7 @@ public class Controller {
                 }else if (message.equals("LIST")) {
                     handleListOperation(controllerSocket, message);
                 }else if (message.startsWith("REMOVE_ACK ")) {
-                    System.out.println("REMOVE_ACK is handled in remove method ");;
+                    System.out.println("YURRRR REMOVE ACK RECIEVED GANG");
                 }else{
                     System.err.println("ERROR: Invalid message format");
                     return;
@@ -250,16 +252,17 @@ public class Controller {
             System.err.println("ERROR: File " + filename + " does not exist");
             return;
         }
-        fileInformation.setStatus(Index.FileStatus.REMOVE_IN_PROGRESS);
-
         if (dstorePortsConnected.size() < replicationFactor){
             sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
             System.err.println("ERROR: Not enough Dstores to remove " + filename);
             return;
         }
 
+        fileInformation.setStatus(Index.FileStatus.REMOVE_IN_PROGRESS);
+
         ArrayList<Integer> dStoresWithFile = fileInformation.getStoragePorts();
         CountDownLatch latch = new CountDownLatch(dStoresWithFile.size());
+        removeCountdownMap.put(filename, latch);
 
         for (Integer port : dStoresWithFile) {
             new Thread(() -> {
@@ -268,11 +271,11 @@ public class Controller {
                     sendMessage(dstoreSocket, "REMOVE " + filename);
                     BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(dstoreSocket.getInputStream()));
                     String response = bufferedReader.readLine();
-                    if (response.equals("REMOVE_ACK " + filename) || response.equals("ERROR_FILE_DOES_NOT_EXIST " + filename)) {
-                        System.out.println("Received REMOVE_ACK for file " + filename + " from Dstore " + port);
+                    if (response.equals("REMOVE_ACK " + filename) || response.startsWith("ERROR_FILE_DOES_NOT_EXIST " + filename)) {
+                        System.out.println("Received response from Dstore " + port + " for file " + filename + ": " + response);
                         latch.countDown();
                     } else {
-                        System.err.println("ERROR: Invalid response from Dstore " + port + "\nResponse is: " + response);
+                        System.err.println("ERROR: Invalid response from Dstore " + port + ": " + response);
                     }
                     dstoreSocket.close();
                 } catch (Exception e) {
@@ -285,8 +288,8 @@ public class Controller {
             try {
                 boolean allAcksRecieved = latch.await(timeout, TimeUnit.MILLISECONDS);
                 if (allAcksRecieved) {
-                    index.removeFile(filename);
                     index.getFileInformation(filename).setStatus(Index.FileStatus.REMOVE_COMPLETE);
+                    index.removeFile(filename);
                     sendMessage(controllerSocket, "REMOVE_COMPLETE");
                     System.out.println("File " + filename + " removed successfully from Dstores: " + dStoresWithFile);
                 } else {
@@ -296,6 +299,20 @@ public class Controller {
                 System.err.println("ERROR: Could not wait for REMOVE_ACK: " + e);
             }
         }).start();
+    }
+
+    private void handleREMOVE_ACK(String message){
+        System.out.println("REMOVE_ACK message recieved!");
+        String[] parts = message.split(" ");
+        if (parts.length != 2){
+            System.err.println("ERROR: Malformed REMOVE_ACK message");
+        }
+        String filename = parts[1];
+        CountDownLatch latch = removeCountdownMap.get(filename);
+        if (latch != null){
+            latch.countDown();
+            System.out.println("Received REMOVE_ACK for file " + filename);
+        }
     }
 
     private void handleListOperation(Socket controllerSocket, String message){
