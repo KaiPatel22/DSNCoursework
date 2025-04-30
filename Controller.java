@@ -71,8 +71,10 @@ public class Controller {
                     handleReloadOperation(controllerSocket, message);
                 }else if (message.startsWith("REMOVE ")) {
                     handleRemoveOperation(controllerSocket, message);
-                }else if (message.equals("LIST")){
+                }else if (message.equals("LIST")) {
                     handleListOperation(controllerSocket, message);
+                }else if (message.startsWith("REMOVE_ACK ")) {
+                    System.out.println("REMOVE_ACK is handled in remove method ");;
                 }else{
                     System.err.println("ERROR: Invalid message format");
                     return;
