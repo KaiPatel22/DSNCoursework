@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -19,7 +20,7 @@ public class Controller {
     private final Map<String, CountDownLatch> filenameCountdownMap = Collections.synchronizedMap(new HashMap<>()); // Map to link the filename and the countdown before the STORE_ACK timeouts.
     private Integer lastUsedPort = null; // For LOAD operation
     private final Map<String, CountDownLatch> removeCountdownMap = Collections.synchronizedMap(new HashMap<>());
-
+    private Map<Integer, Socket> dstorePortsAndSocketsMap = new ConcurrentHashMap<>();
 
     public Controller(int cport, int replicationFactor, int timeout, int rebalance_period) {
         this.cport = cport;
@@ -87,17 +88,24 @@ public class Controller {
         }
     }
 
-    private void handleJoinOperation(String message){
+    private void handleJoinOperation(String message) {
         System.out.println("JOIN message recieved!");
         String[] parts = message.split(" ");
         int dstorePort = Integer.parseInt(parts[1]);
-        if (!dstorePortsConnected.contains(dstorePort)) {
-            dstorePortsConnected.add(dstorePort);
-            System.out.println("Added Dstore port " + dstorePort + " to connected list.");
-            System.out.println("List of Dstore ports connected: " + dstorePortsConnected);
-        }else{
-            System.out.println("Dstore port " + dstorePort + " is already connected.");
-            System.out.println("List of Dstore ports connected: " + dstorePortsConnected);
+        try{
+            if (!dstorePortsConnected.contains(dstorePort)) {
+                Socket dstoreSocket = new Socket(InetAddress.getLocalHost(), dstorePort);
+                dstorePortsConnected.add(dstorePort);
+                dstorePortsAndSocketsMap.put(dstorePort, dstoreSocket);
+                System.out.println("Added Dstore port " + dstorePort + " to connected list.");
+                System.out.println("List of Dstore ports connected: " + dstorePortsConnected);
+            }else{
+                System.out.println("Dstore port " + dstorePort + " is already connected.");
+                System.out.println("List of Dstore ports connected: " + dstorePortsConnected);
+            }
+        }catch (Exception e){
+            System.err.println("ERROR: Could not connect to Dstore socket " + dstorePort + ": " + e);
+            return;
         }
     }
 
@@ -267,9 +275,8 @@ public class Controller {
         for (Integer port : dStoresWithFile) {
             new Thread(() -> {
                 try {
-                    Socket dstoreSocket = new Socket(InetAddress.getLocalHost(), port);
+                    Socket dstoreSocket = dstorePortsAndSocketsMap.get(port);
                     sendMessage(dstoreSocket, "REMOVE " + filename);
-                    dstoreSocket.close();
                 } catch (Exception e) {
                     System.err.println("ERROR: Could not connect to Dstore " + port + ": " + e);
                 }
