@@ -88,6 +88,8 @@ public class DStore {
             sendMessage(dStoreSocket, "ACK");
             System.out.println("Sent ACK message to client");
 
+            dStoreSocket.setSoTimeout(timeout);
+
             InputStream inputStream = dStoreSocket.getInputStream();
             byte[] fileBytes = inputStream.readNBytes((int) filesize);
             int totalRead = 0;
@@ -129,6 +131,7 @@ public class DStore {
             return;
         }
         try {
+            dStoreSocket.setSoTimeout(timeout);
             FileInputStream fileInputStream = new FileInputStream(file);
             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(dStoreSocket.getOutputStream());
             byte[] buffer = new byte[4096];
