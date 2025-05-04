@@ -1,7 +1,7 @@
 import java.io.*;
 import java.net.*;
 
-public class DStore {
+public class Dstore {
 
     private int port;
     private int cport;
@@ -10,7 +10,7 @@ public class DStore {
     Socket controllerSocket;
 
 
-    public DStore(int port, int cport, int timeout, String file_folder) {
+    public Dstore(int port, int cport, int timeout, String file_folder) {
         this.port = port;
         this.cport = cport;
         this.timeout = timeout;
@@ -186,7 +186,7 @@ public class DStore {
         int timeout = Integer.parseInt(args[2]);
         String file_folder = args[3];
 
-        DStore dstore = new DStore(port, cport, timeout, file_folder);
+        Dstore dstore = new Dstore(port, cport, timeout, file_folder);
         dstore.start();
     }
 }
