@@ -1,0 +1,7 @@
+Connection established to port 4321
+Message sent to port 4321: LIST
+List operation started
+Message received from port 4321: LIST
+List operation successfully completed
+Message sent to port 4321: STORE test1.txt 24
+Store operation started for file test1.txt
