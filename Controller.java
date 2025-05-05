@@ -16,9 +16,8 @@ public class Controller {
     private int timeout;
     private int rebalance_period;
     static Index index;
-//    private ArrayList<Integer> dstorePortsConnected; // Keeps track of dstore ports connected.
     private final Map<String, CountDownLatch> filenameCountdownMap = Collections.synchronizedMap(new HashMap<>()); // Map to link the filename and the countdown before the STORE_ACK timeouts.
-    private Integer lastUsedPort = null; // For LOAD operation
+    private ConcurrentHashMap<Socket, Integer> clientLastUsedPortMap = new ConcurrentHashMap<>();
     private final Map<String, CountDownLatch> removeCountdownMap = Collections.synchronizedMap(new HashMap<>());
     private Map<Integer, Socket> dstorePortsSocketsMap = new ConcurrentHashMap<>();
 
@@ -28,8 +27,6 @@ public class Controller {
         this.timeout = timeout;
         this.rebalance_period = rebalance_period;
         index = new Index();
-//        dstorePortsConnected = new ArrayList<Integer>();
-
     }
 
     public void start(){
@@ -94,17 +91,12 @@ public class Controller {
         int dstorePort = Integer.parseInt(parts[1]);
         try{
             if (!dstorePortsSocketsMap.containsKey(dstorePort)){
-//            ArrayList<Integer> dstorePortsConnected = new ArrayList<>(dstorePortsAndSocketsMap.keySet());
-//            if (!dstorePortsConnected.contains(dstorePort)) {
                 Socket dstoreSocket = new Socket(InetAddress.getLocalHost(), dstorePort);
-//                dstorePortsConnected.add(dstorePort);
                 dstorePortsSocketsMap.put(dstorePort, dstoreSocket);
                 System.out.println("Added Dstore port " + dstorePort + " to connected list.");
                 System.out.println("List of Dstore ports connected: " + dstorePortsSocketsMap.keySet());
-//                System.out.println("List of Dstore ports connected: " + dstorePortsConnected);
             }else{
                 System.out.println("Dstore port " + dstorePort + " is already connected.");
-//                System.out.println("List of Dstore ports connected: " + dstorePortsConnected);
                 System.out.println("List of Dstore ports connected: " + dstorePortsSocketsMap.keySet());
             }
         }catch (Exception e){
@@ -122,7 +114,6 @@ public class Controller {
         String filename = parts[1];
         long filesize = Long.parseLong(parts[2]);
         if (dstorePortsSocketsMap.size() < replicationFactor){
-//        if (dstorePortsConnected.size() < replicationFactor){ // NOT ENOUGH DSTORES CHECK
             sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
             System.err.println("ERROR: Not enough Dstores connected to store " + filename);
             return;
@@ -203,7 +194,6 @@ public class Controller {
     }
 
     private void handleLoadOperation(Socket controllerSocket, String message){
-        lastUsedPort = null;
         System.out.println("LOAD message recieved!");
         String[] parts = message.split(" ");
         if (parts.length != 2){
@@ -217,14 +207,13 @@ public class Controller {
             return;
         }
         if (dstorePortsSocketsMap.size() < replicationFactor){
-//        if (dstorePortsConnected.size() < replicationFactor){ // NOT ENOUGH DSTORES CHECK
             sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
             System.err.println("ERROR: Not enough DStores to load " + filename);
             return;
         }
         ArrayList<Integer> listOfPorts = fileInformation.getStoragePorts();
         int chosenPort = listOfPorts.get(0);
-        lastUsedPort = chosenPort;
+        clientLastUsedPortMap.put(controllerSocket, chosenPort);
         long fileSize = fileInformation.getFileSize();
         sendMessage(controllerSocket, "LOAD_FROM " + chosenPort + " " + fileSize);
         System.out.println("Sent LOAD_FROM " + chosenPort + " " + fileSize + " to client");
@@ -245,6 +234,7 @@ public class Controller {
         }
 
         ArrayList<Integer> availableDstores = new ArrayList<>(fileInformation.getStoragePorts());
+        Integer lastUsedPort = clientLastUsedPortMap.get(controllerSocket);
         if (lastUsedPort != null) {
             availableDstores.remove(lastUsedPort);
         }
@@ -254,7 +244,7 @@ public class Controller {
             return;
         }
         int chosenPort = availableDstores.get(0);
-        lastUsedPort = chosenPort;
+        clientLastUsedPortMap.put(controllerSocket, chosenPort);
         long fileSize = fileInformation.getFileSize();
 
         sendMessage(controllerSocket, "LOAD_FROM " + chosenPort + " " + fileSize);
@@ -270,13 +260,12 @@ public class Controller {
         String filename = parts[1];
 
         Index.FileInformation fileInformation = index.getFileInformation(filename);
-        if (fileInformation == null) {
+        if (fileInformation == null || fileInformation.getStatus() != Index.FileStatus.STORE_COMPLETE){
             sendMessage(controllerSocket, "ERROR_FILE_DOES_NOT_EXIST");
             System.err.println("ERROR: File " + filename + " does not exist");
             return;
         }
         if (dstorePortsSocketsMap.size() < replicationFactor){
-//        if (dstorePortsConnected.size() < replicationFactor){
             sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
             System.err.println("ERROR: Not enough Dstores to remove " + filename);
             return;
@@ -333,7 +322,6 @@ public class Controller {
     private void handleListOperation(Socket controllerSocket, String message){
         System.out.println("LIST message recieved!");
         if (dstorePortsSocketsMap.size() < replicationFactor){
-//        if (dstorePortsConnected.size() < replicationFactor){
             sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
             System.err.println("ERROR: Not enough Dstores to list files");
             return;
@@ -348,7 +336,6 @@ public class Controller {
                 response.append(" ").append(filename);
             }
             sendMessage(controllerSocket, response.toString());
-            System.out.println("Sent list of files to client: " + response);
         }
     }
 
