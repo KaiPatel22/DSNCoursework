@@ -201,7 +201,7 @@ public class Controller {
         }
         String filename = parts[1];
         Index.FileInformation fileInformation = index.getFileInformation(filename);
-        if (fileInformation == null){ // FILE DOES NOT EXIST CHECK
+        if (fileInformation == null || fileInformation.getStatus() != Index.FileStatus.STORE_COMPLETE){ // FILE DOES NOT EXIST CHECK
             sendMessage(controllerSocket, "ERROR_FILE_DOES_NOT_EXIST");
             System.err.println("ERROR: File " + filename + " does not exist");
             return;
@@ -281,7 +281,11 @@ public class Controller {
             new Thread(() -> {
                 try {
                     Socket dstoreSocket = dstorePortsSocketsMap.get(port);
-                    sendMessage(dstoreSocket, "REMOVE " + filename);
+                    if(dstoreSocket != null && !dstoreSocket.isClosed()){
+                        sendMessage(dstoreSocket, "REMOVE " + filename);
+                    } else {
+                        System.err.println("ERROR: Persistent connection for Dstore " + port + " is unavailable.");
+                    }
                 } catch (Exception e) {
                     System.err.println("ERROR: Could not connect to Dstore " + port + ": " + e);
                 }
