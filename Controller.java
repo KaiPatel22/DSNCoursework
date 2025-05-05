@@ -20,7 +20,7 @@ public class Controller {
     private final Map<String, CountDownLatch> filenameCountdownMap = Collections.synchronizedMap(new HashMap<>()); // Map to link the filename and the countdown before the STORE_ACK timeouts.
     private Integer lastUsedPort = null; // For LOAD operation
     private final Map<String, CountDownLatch> removeCountdownMap = Collections.synchronizedMap(new HashMap<>());
-    private Map<Integer, Socket> dstorePortsAndSocketsMap = new ConcurrentHashMap<>();
+    private Map<Integer, Socket> dstorePortsSocketsMap = new ConcurrentHashMap<>();
 
     public Controller(int cport, int replicationFactor, int timeout, int rebalance_period) {
         this.cport = cport;
@@ -93,19 +93,19 @@ public class Controller {
         String[] parts = message.split(" ");
         int dstorePort = Integer.parseInt(parts[1]);
         try{
-            if (!dstorePortsAndSocketsMap.containsKey(dstorePort)){
+            if (!dstorePortsSocketsMap.containsKey(dstorePort)){
 //            ArrayList<Integer> dstorePortsConnected = new ArrayList<>(dstorePortsAndSocketsMap.keySet());
 //            if (!dstorePortsConnected.contains(dstorePort)) {
                 Socket dstoreSocket = new Socket(InetAddress.getLocalHost(), dstorePort);
 //                dstorePortsConnected.add(dstorePort);
-                dstorePortsAndSocketsMap.put(dstorePort, dstoreSocket);
+                dstorePortsSocketsMap.put(dstorePort, dstoreSocket);
                 System.out.println("Added Dstore port " + dstorePort + " to connected list.");
-                System.out.println("List of Dstore ports connected: " + dstorePortsAndSocketsMap.keySet());
+                System.out.println("List of Dstore ports connected: " + dstorePortsSocketsMap.keySet());
 //                System.out.println("List of Dstore ports connected: " + dstorePortsConnected);
             }else{
                 System.out.println("Dstore port " + dstorePort + " is already connected.");
 //                System.out.println("List of Dstore ports connected: " + dstorePortsConnected);
-                System.out.println("List of Dstore ports connected: " + dstorePortsAndSocketsMap.keySet());
+                System.out.println("List of Dstore ports connected: " + dstorePortsSocketsMap.keySet());
             }
         }catch (Exception e){
             System.err.println("ERROR: Could not connect to Dstore socket " + dstorePort + ": " + e);
@@ -121,7 +121,7 @@ public class Controller {
         }
         String filename = parts[1];
         long filesize = Long.parseLong(parts[2]);
-        if (dstorePortsAndSocketsMap.size() < replicationFactor){
+        if (dstorePortsSocketsMap.size() < replicationFactor){
 //        if (dstorePortsConnected.size() < replicationFactor){ // NOT ENOUGH DSTORES CHECK
             sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
             System.err.println("ERROR: Not enough Dstores connected to store " + filename);
@@ -167,15 +167,25 @@ public class Controller {
 
     }
 
-    private ArrayList<Integer> selectDstores() { //Ensure files are distributed evenly among Dstores (this is probs wrong ngl)
-//        ArrayList<Integer> sorted = new ArrayList<>(dstorePortsConnected);
-//        Collections.sort(sorted);
-//        ArrayList<Integer> selected = new ArrayList<>();
-//        for (int i = 0; i < replicationFactor; i++) {
-//            selected.add(sorted.get(i));
-//        }
-//        System.out.println("The Dstore ports selected to store the file are " + selected);
-        return null;
+    private ArrayList<Integer> selectDstores() {
+        HashMap<Integer, Integer> dstorePortsFilesStoredMap = new HashMap<>();
+        for (int port : dstorePortsSocketsMap.keySet()) {
+            dstorePortsFilesStoredMap.put(port, 0);
+        }
+        for (Map.Entry<String, Index.FileInformation> entry : index.getFileIndex().entrySet()) {
+            for (int port : entry.getValue().getStoragePorts()) {
+                dstorePortsFilesStoredMap.put(port, dstorePortsFilesStoredMap.get(port) + 1);
+            }
+        }
+        ArrayList<Map.Entry<Integer, Integer>> filesStoreByPortsList = new ArrayList<>(dstorePortsFilesStoredMap.entrySet());
+        filesStoreByPortsList.sort(Map.Entry.comparingByValue());
+
+        ArrayList<Integer> selected = new ArrayList<>();
+        for (int i = 0; i < replicationFactor; i++) {
+            selected.add(filesStoreByPortsList.get(i).getKey());
+        }
+        System.out.println("The " + replicationFactor + " Dstores selected to store are: " + selected);
+        return selected;
     }
 
     private void handleSTORE_ACK(String message){
@@ -206,7 +216,7 @@ public class Controller {
             System.err.println("ERROR: File " + filename + " does not exist");
             return;
         }
-        if (dstorePortsAndSocketsMap.size() < replicationFactor){
+        if (dstorePortsSocketsMap.size() < replicationFactor){
 //        if (dstorePortsConnected.size() < replicationFactor){ // NOT ENOUGH DSTORES CHECK
             sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
             System.err.println("ERROR: Not enough DStores to load " + filename);
@@ -265,7 +275,7 @@ public class Controller {
             System.err.println("ERROR: File " + filename + " does not exist");
             return;
         }
-        if (dstorePortsAndSocketsMap.size() < replicationFactor){
+        if (dstorePortsSocketsMap.size() < replicationFactor){
 //        if (dstorePortsConnected.size() < replicationFactor){
             sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
             System.err.println("ERROR: Not enough Dstores to remove " + filename);
@@ -281,7 +291,7 @@ public class Controller {
         for (Integer port : dStoresWithFile) {
             new Thread(() -> {
                 try {
-                    Socket dstoreSocket = dstorePortsAndSocketsMap.get(port);
+                    Socket dstoreSocket = dstorePortsSocketsMap.get(port);
                     sendMessage(dstoreSocket, "REMOVE " + filename);
                 } catch (Exception e) {
                     System.err.println("ERROR: Could not connect to Dstore " + port + ": " + e);
@@ -322,7 +332,7 @@ public class Controller {
 
     private void handleListOperation(Socket controllerSocket, String message){
         System.out.println("LIST message recieved!");
-        if (dstorePortsAndSocketsMap.size() < replicationFactor){
+        if (dstorePortsSocketsMap.size() < replicationFactor){
 //        if (dstorePortsConnected.size() < replicationFactor){
             sendMessage(controllerSocket, "ERROR_NOT_ENOUGH_DSTORES");
             System.err.println("ERROR: Not enough Dstores to list files");
