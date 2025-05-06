@@ -2,10 +2,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -17,7 +14,7 @@ public class Controller {
     private int rebalance_period;
     static Index index;
     private final Map<String, CountDownLatch> filenameCountdownMap = Collections.synchronizedMap(new HashMap<>()); // Map to link the filename and the countdown before the STORE_ACK timeouts.
-    private ConcurrentHashMap<Socket, Integer> clientLastUsedPortMap = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Socket, Set<Integer>> clientLastUsedPortSetMap = new ConcurrentHashMap<>();
     private final Map<String, CountDownLatch> removeCountdownMap = Collections.synchronizedMap(new HashMap<>());
     private Map<Integer, Socket> dstorePortsSocketsMap = new ConcurrentHashMap<>();
 
@@ -212,9 +209,13 @@ public class Controller {
             System.err.println("ERROR: Not enough DStores to load " + filename);
             return;
         }
+
         ArrayList<Integer> listOfPorts = fileInformation.getStoragePorts();
         int chosenPort = listOfPorts.get(0);
-        clientLastUsedPortMap.put(controllerSocket, chosenPort);
+        Set<Integer> usedPorts = new HashSet<>();
+        usedPorts.add(chosenPort);
+        clientLastUsedPortSetMap.put(controllerSocket, usedPorts);
+
         long fileSize = fileInformation.getFileSize();
         sendMessage(controllerSocket, "LOAD_FROM " + chosenPort + " " + fileSize);
         System.out.println("Sent LOAD_FROM " + chosenPort + " " + fileSize + " to client");
@@ -234,18 +235,20 @@ public class Controller {
             return;
         }
 
-        ArrayList<Integer> availableDstores = new ArrayList<>(fileInformation.getStoragePorts());
-        Integer lastUsedPort = clientLastUsedPortMap.get(controllerSocket);
-        if (lastUsedPort != null) {
-            availableDstores.remove(lastUsedPort);
+        Set<Integer> usedPorts = clientLastUsedPortSetMap.get(controllerSocket);
+        if (usedPorts == null){
+            usedPorts = new HashSet<>();
         }
+        ArrayList<Integer> availableDstores = new ArrayList<>(fileInformation.getStoragePorts());
+        availableDstores.removeAll(usedPorts);
         if (availableDstores.isEmpty()) {
             sendMessage(controllerSocket, "ERROR_LOAD");
             System.err.println("ERROR: No alternative Dstore available for reload of file " + filename);
             return;
         }
         int chosenPort = availableDstores.get(0);
-        clientLastUsedPortMap.put(controllerSocket, chosenPort);
+        usedPorts.add(chosenPort);
+        clientLastUsedPortSetMap.put(controllerSocket, usedPorts);
         long fileSize = fileInformation.getFileSize();
 
         sendMessage(controllerSocket, "LOAD_FROM " + chosenPort + " " + fileSize);

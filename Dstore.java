@@ -47,7 +47,7 @@ public class Dstore {
             controllerSocket = new Socket(InetAddress.getLocalHost(), cport);
             System.out.println("Connected to controller on port " + controllerSocket.getPort() + " with address " + controllerSocket.getInetAddress());
             sendJoinMessage(); // Join message to controller
-            listenToController();
+            listenToController(); // Start listening on the controller socket
         } catch (Exception e) {
             System.err.println("ERROR: Connecting to controller was not performed: " + e.getMessage());
         }
@@ -56,7 +56,7 @@ public class Dstore {
     private void listenToController(){
         new Thread(() -> {
             try{
-                BufferedReader reader = new BufferedReader(new InputStreamReader(controllerSocket.getInputStream()));
+                BufferedReader reader = new BufferedReader(new InputStreamReader(controllerSocket.getInputStream())); // Listens on the controller socket
                 String message;
                 while ((message = reader.readLine()) != null){
                     if (message.startsWith("REMOVE ")){
@@ -78,7 +78,7 @@ public class Dstore {
 
     private void handleOperation(Socket dstoreSocket){
         try{
-            BufferedReader reader = new BufferedReader(new InputStreamReader(dstoreSocket.getInputStream()));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(dstoreSocket.getInputStream())); // Listens on the dstore socket (messages from the client)
             String message;
             while ((message = reader.readLine()) != null) {
                 if (message.startsWith("STORE ")) {
