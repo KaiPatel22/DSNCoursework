@@ -60,7 +60,7 @@ public class Controller {
             String message;
             while ((message = reader.readLine()) != null) {
                 if (message.startsWith("JOIN ")){
-                    handleJoinOperation(message);
+                    handleJoinOperation(controllerSocket, message);
                 }else if (message.startsWith("STORE ")) {
                     handleStoreOperation(controllerSocket, message);
                 }else if (message.startsWith("STORE_ACK ")) {
@@ -72,6 +72,8 @@ public class Controller {
                 }else if (message.startsWith("REMOVE ")) {
                     handleRemoveOperation(controllerSocket, message);
                 }else if (message.startsWith("REMOVE_ACK ")) {
+                    handleREMOVE_ACK(message);
+                }else if (message.startsWith("ERROR_FILE_DOES_NOT_EXIST ")) {
                     handleREMOVE_ACK(message);
                 }else if (message.equals("LIST")) {
                     handleListOperation(controllerSocket, message);
@@ -85,14 +87,13 @@ public class Controller {
         }
     }
 
-    private void handleJoinOperation(String message) {
+    private void handleJoinOperation(Socket controllerSocket, String message) {
         System.out.println("JOIN message recieved!");
         String[] parts = message.split(" ");
         int dstorePort = Integer.parseInt(parts[1]);
         try{
             if (!dstorePortsSocketsMap.containsKey(dstorePort)){
-                Socket dstoreSocket = new Socket(InetAddress.getLocalHost(), dstorePort);
-                dstorePortsSocketsMap.put(dstorePort, dstoreSocket);
+                dstorePortsSocketsMap.put(dstorePort, controllerSocket);
                 System.out.println("Added Dstore port " + dstorePort + " to connected list.");
                 System.out.println("List of Dstore ports connected: " + dstorePortsSocketsMap.keySet());
             }else{
@@ -283,6 +284,7 @@ public class Controller {
                     Socket dstoreSocket = dstorePortsSocketsMap.get(port);
                     if(dstoreSocket != null && !dstoreSocket.isClosed()){
                         sendMessage(dstoreSocket, "REMOVE " + filename);
+                        System.out.println("Sent REMOVE message to Dstore " + port + " for file " + filename);
                     } else {
                         System.err.println("ERROR: Persistent connection for Dstore " + port + " is unavailable.");
                     }

@@ -47,9 +47,28 @@ public class Dstore {
             controllerSocket = new Socket(InetAddress.getLocalHost(), cport);
             System.out.println("Connected to controller on port " + controllerSocket.getPort() + " with address " + controllerSocket.getInetAddress());
             sendJoinMessage(); // Join message to controller
+            listenToController();
         } catch (Exception e) {
             System.err.println("ERROR: Connecting to controller was not performed: " + e.getMessage());
         }
+    }
+
+    private void listenToController(){
+        new Thread(() -> {
+            try{
+                BufferedReader reader = new BufferedReader(new InputStreamReader(controllerSocket.getInputStream()));
+                String message;
+                while ((message = reader.readLine()) != null){
+                    if (message.startsWith("REMOVE ")){
+                        handleRemoveOperation(message);
+                    }else{
+                        System.err.println("ERROR: Invalid message format from controller: " + message);
+                    }
+                }
+            }catch(Exception e){
+                System.err.println("ERROR: Could not listen to controller: " + e.getMessage());
+            }
+        }).start();
     }
 
     private void sendJoinMessage() {
@@ -60,15 +79,17 @@ public class Dstore {
     private void handleOperation(Socket dstoreSocket){
         try{
             BufferedReader reader = new BufferedReader(new InputStreamReader(dstoreSocket.getInputStream()));
-            String message = reader.readLine();
-            if (message.startsWith("STORE ")) {
-                handleStoreOperation(dstoreSocket, message);
-            }else if (message.startsWith("LOAD_DATA ")) {
-                handleLoad_DataOperation(dstoreSocket, message);
-            }else if (message.startsWith("REMOVE ")) {
-                handleRemoveOperation(message);
-            } else {
-                System.err.println("ERROR: Invalid message format.");
+            String message;
+            while ((message = reader.readLine()) != null) {
+                if (message.startsWith("STORE ")) {
+                    handleStoreOperation(dstoreSocket, message);
+                }else if (message.startsWith("LOAD_DATA ")) {
+                    handleLoad_DataOperation(dstoreSocket, message);
+                }else if (message.startsWith("REMOVE ")) {
+                    handleRemoveOperation(message);
+                } else {
+                    System.err.println("ERROR: Invalid message format.");
+                }
             }
         }catch(Exception e){
             System.err.println("ERROR: Could not handle operation: " + e.getMessage());
