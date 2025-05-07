@@ -137,7 +137,7 @@ public class Controller {
                 try{
                     boolean allAcksRecieved = latch.await(timeout, TimeUnit.MILLISECONDS);
                     if (allAcksRecieved) {
-                        index.updateFileStatus(filename, Index.FileStatus.STORE_COMPLETE);
+                        index.getFileInformation(filename).setStatus(Index.FileStatus.STORE_COMPLETE);
                         out.println("STORE_COMPLETE");
                         System.out.println("File " + filename + " stored successfully on Dstores: " + selectedDstores);
                     }else{
