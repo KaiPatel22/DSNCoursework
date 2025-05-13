@@ -165,7 +165,7 @@ public class Controller {
             for (int port : entry.getValue().getStoragePorts()) {
                 dstorePortsFilesStoredMap.put(port, dstorePortsFilesStoredMap.get(port) + 1);
             }
-        }
+        }   
         ArrayList<Map.Entry<Integer, Integer>> filesStoreByPortsList = new ArrayList<>(dstorePortsFilesStoredMap.entrySet());
         filesStoreByPortsList.sort(Map.Entry.comparingByValue());
 
@@ -246,6 +246,7 @@ public class Controller {
             System.err.println("ERROR: No alternative Dstore available for reload of file " + filename);
             return;
         }
+
         int chosenPort = availableDstores.get(0);
         usedPorts.add(chosenPort);
         clientLastUsedPortSetMap.put(controllerSocket, usedPorts);
