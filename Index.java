@@ -15,7 +15,7 @@ public class Index {
         this.fileIndex = new HashMap<String, FileInformation>();
     }
 
-    static class FileInformation{
+    public static class FileInformation{
         private FileStatus status;
         private long fileSize;
         private ArrayList<Integer> storagePorts; //Ports of the Dstores that contain the file
