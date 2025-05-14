@@ -311,8 +311,12 @@ public class Controller {
             try {
                 boolean allAcksRecieved = latch.await(timeout, TimeUnit.MILLISECONDS);
                 if (allAcksRecieved) {
-                    index.getFileInformation(filename).setStatus(Index.FileStatus.REMOVE_COMPLETE);
-                    index.removeFile(filename);
+                    synchronized (index){
+                        if (index.getFileInformation(filename) != null && index.getFileInformation(filename).getStatus() == Index.FileStatus.REMOVE_IN_PROGRESS) {
+                            index.getFileInformation(filename).setStatus(Index.FileStatus.REMOVE_COMPLETE);
+                            index.removeFile(filename);
+                        }
+                    }
                     sendMessage(controllerSocket, "REMOVE_COMPLETE");
                     System.out.println("File " + filename + " removed successfully from Dstores: " + dStoresWithFile);
                 } else {
@@ -352,8 +356,6 @@ public class Controller {
         }else{
             StringBuilder response = new StringBuilder("LIST");
             for (String filename : arrayListOfFiles) {
-                Index.FileInformation fileInformation = index.getFileInformation(filename);
-                if (fileInformation != null && index.getFileInformation(filename).getStatus() != Index.FileStatus.STORE_COMPLETE){}
                 response.append(" ").append(filename);
             }
             sendMessage(controllerSocket, response.toString());
