@@ -116,13 +116,16 @@ public class Controller {
             System.err.println("ERROR: Not enough Dstores connected to store " + filename);
             return;
         }
-        if (index.getFileInformation(filename) != null){ // FILE ALREADY EXISTS CHECK
-            sendMessage(controllerSocket, "ERROR_FILE_ALREADY_EXISTS");
-            System.err.println("ERROR: File " + filename + " already exists.");
-            return;
+        synchronized (index){
+            if (index.getFileInformation(filename) != null){ // FILE ALREADY EXISTS CHECK
+                sendMessage(controllerSocket, "ERROR_FILE_ALREADY_EXISTS");
+                System.err.println("ERROR: File " + filename + " already exists.");
+                return;
+            }
+            index.addFile(filename, filesize, selectDstores());
         }
-        ArrayList<Integer> selectedDstores = selectDstores();
-        index.addFile(filename, filesize, selectedDstores);
+        ArrayList<Integer> selectedDstores = index.getFileInformation(filename).getStoragePorts();
+
         try{
             PrintWriter out = new PrintWriter(controllerSocket.getOutputStream(), true);
             StringBuilder response = new StringBuilder("STORE_TO");
@@ -137,12 +140,18 @@ public class Controller {
                 try{
                     boolean allAcksRecieved = latch.await(timeout, TimeUnit.MILLISECONDS);
                     if (allAcksRecieved) {
-                        index.getFileInformation(filename).setStatus(Index.FileStatus.STORE_COMPLETE);
+                        synchronized (index){
+                            if (index.getFileInformation(filename) != null && index.getFileInformation(filename).getStatus() == Index.FileStatus.STORE_IN_PROGRESS){
+                                index.getFileInformation(filename).setStatus(Index.FileStatus.STORE_COMPLETE);
+                            }
+                        }
                         out.println("STORE_COMPLETE");
                         System.out.println("File " + filename + " stored successfully on Dstores: " + selectedDstores);
                     }else{
                         System.err.println("ERROR: Timeout waiting for STORE_ACK for file " + filename);
-                        index.removeFile(filename);
+                        synchronized (index){
+                            index.removeFile(filename);
+                        }
                     }
                 }catch (Exception e){
                     System.err.println("ERROR: Could not wait for STORE_ACK: " + e);
@@ -343,6 +352,8 @@ public class Controller {
         }else{
             StringBuilder response = new StringBuilder("LIST");
             for (String filename : arrayListOfFiles) {
+                Index.FileInformation fileInformation = index.getFileInformation(filename);
+                if (fileInformation != null && index.getFileInformation(filename).getStatus() != Index.FileStatus.STORE_COMPLETE){}
                 response.append(" ").append(filename);
             }
             sendMessage(controllerSocket, response.toString());
